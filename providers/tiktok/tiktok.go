@@ -123,13 +123,13 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	if err != nil {
 		return user, err
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("%s responded with a %d trying to fetch user information", p.providerName, response.StatusCode)
 	}
 
 	err = userFromReader(response.Body, &user)
-	_ = response.Body.Close()
 	return user, err
 }
 
@@ -204,13 +204,13 @@ func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = refreshResponse.Body.Close() }()
 
 	// We get the body bytes in case we need to parse an error response
 	bodyBytes, err := io.ReadAll(refreshResponse.Body)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = refreshResponse.Body.Close() }()
 
 	refresh := struct {
 		Data struct {

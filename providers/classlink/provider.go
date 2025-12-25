@@ -100,7 +100,7 @@ func (p Provider) FetchUser(session goth.Session) (goth.User, error) {
 		return user, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {

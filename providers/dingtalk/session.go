@@ -77,7 +77,7 @@ func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string,
 		p.logDebug("Failed to send authorization request: %v", err)
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	p.logDebug("Authorization response status code: %d", resp.StatusCode)
 

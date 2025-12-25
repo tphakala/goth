@@ -129,7 +129,7 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	}
 
 	err = userFromReader(response.Body, &user)
-	response.Body.Close()
+	_ = response.Body.Close()
 	return user, err
 }
 
@@ -210,7 +210,7 @@ func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer refreshResponse.Body.Close()
+	defer func() { _ = refreshResponse.Body.Close() }()
 
 	refresh := struct {
 		Data struct {

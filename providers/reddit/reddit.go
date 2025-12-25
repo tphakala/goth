@@ -97,7 +97,7 @@ func (p *Provider) FetchUser(s goth.Session) (goth.User, error) {
 		return goth.User{}, err
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != http.StatusOK {
 		if res.StatusCode == http.StatusForbidden {

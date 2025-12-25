@@ -92,13 +92,13 @@ func xeroProvider() *Provider {
 func init() {
 	p := pat.New()
 	p.Get("/oauth/RequestToken", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
+		_, _ = fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
 	})
 	p.Get("/oauth/Authorize", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(res, "DO NOT USE THIS ENDPOINT")
+		_, _ = fmt.Fprint(res, "DO NOT USE THIS ENDPOINT")
 	})
 	p.Get("/oauth/AccessToken", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
+		_, _ = fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
 	})
 	p.Get("/api.xro/2.0/Organisation", func(res http.ResponseWriter, req *http.Request) {
 		apiResponse := APIResponse{
@@ -109,10 +109,10 @@ func init() {
 
 		js, err := json.Marshal(apiResponse)
 		if err != nil {
-			fmt.Fprint(res, "Json did not Marshal")
+			_, _ = fmt.Fprint(res, "Json did not Marshal")
 		}
 
-		res.Write(js)
+		_, _ = res.Write(js)
 	})
 
 	ts := httptest.NewServer(p)

@@ -128,7 +128,7 @@ func Test_FetchUnverifiedUser(t *testing.T) {
 func mockIntercomFetchUser(fetchUserPayload *fetchUserPayload, f func(*httptest.Server)) {
 	p := pat.New()
 	p.Get("/me", func(res http.ResponseWriter, req *http.Request) {
-		json.NewEncoder(res).Encode(fetchUserPayload)
+		_ = json.NewEncoder(res).Encode(fetchUserPayload)
 	})
 	ts := httptest.NewServer(p)
 	defer ts.Close()

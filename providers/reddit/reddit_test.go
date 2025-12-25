@@ -48,7 +48,7 @@ func TestProvider(t *testing.T) {
 				t.Fatal(err)
 			}
 			writer.Header().Add("Content-Type", "application/json")
-			writer.Write(b)
+			_, _ = writer.Write(b)
 		}))
 
 		defer redditServer.Close()

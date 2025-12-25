@@ -74,7 +74,7 @@ func TestSession(t *testing.T) {
 			}
 			writer.Header().Add("Content-Type", "application/json")
 			writer.WriteHeader(http.StatusOK)
-			writer.Write(b)
+			_, _ = writer.Write(b)
 		}))
 
 		tokenURL := authServer.URL
@@ -105,7 +105,7 @@ func TestSession(t *testing.T) {
 			}
 			writer.Header().Add("Content-Type", "application/json")
 			writer.WriteHeader(http.StatusOK)
-			writer.Write(b)
+			_, _ = writer.Write(b)
 		}))
 
 		tokenURL := authServer.URL

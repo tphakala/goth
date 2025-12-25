@@ -58,7 +58,7 @@ func Test_FetchUser(t *testing.T) {
 		a.Equal(r.Header.Get("Authorization"), "Bearer 1234567890")
 		a.Equal(r.Method, "POST")
 		a.Equal(r.URL.Path, accountPath)
-		w.Write([]byte(testAccountResponse))
+		_, _ = w.Write([]byte(testAccountResponse))
 	}))
 	p.AccountURL = ts.URL + accountPath
 

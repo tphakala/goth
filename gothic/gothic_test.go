@@ -128,11 +128,18 @@ func Test_GetAuthURL(t *testing.T) {
 func Test_CompleteUserAuth(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	res := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/auth/callback?provider=faux", nil)
+	req, err := http.NewRequest("GET", "/auth/callback?provider=faux&state="+testState, nil)
 	a.NoError(err)
 
-	sess := faux.Session{Name: "Homer Simpson", Email: "homer@example.com"}
+	// Include AuthURL with matching state for CSRF validation
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.Get(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 	err = session.Save(req, res)
@@ -148,12 +155,19 @@ func Test_CompleteUserAuth(t *testing.T) {
 func Test_CompleteUserAuthWithSessionDeducedProvider(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	res := httptest.NewRecorder()
 	// Intentionally omit a provider argument, force looking in session.
-	req, err := http.NewRequest("GET", "/auth/callback", nil)
+	req, err := http.NewRequest("GET", "/auth/callback?state="+testState, nil)
 	a.NoError(err)
 
-	sess := faux.Session{Name: "Homer Simpson", Email: "homer@example.com"}
+	// Include AuthURL with matching state for CSRF validation
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.Get(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 	err = session.Save(req, res)
@@ -169,13 +183,20 @@ func Test_CompleteUserAuthWithSessionDeducedProvider(t *testing.T) {
 func Test_CompleteUserAuthWithContextParamProvider(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	res := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/auth/callback", nil)
+	req, err := http.NewRequest("GET", "/auth/callback?state="+testState, nil)
 	a.NoError(err)
 
 	req = GetContextWithProvider(req, "faux")
 
-	sess := faux.Session{Name: "Homer Simpson", Email: "homer@example.com"}
+	// Include AuthURL with matching state for CSRF validation
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.Get(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 	err = session.Save(req, res)
@@ -191,11 +212,18 @@ func Test_CompleteUserAuthWithContextParamProvider(t *testing.T) {
 func Test_Logout(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	res := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/auth/callback?provider=faux", nil)
+	req, err := http.NewRequest("GET", "/auth/callback?provider=faux&state="+testState, nil)
 	a.NoError(err)
 
-	sess := faux.Session{Name: "Homer Simpson", Email: "homer@example.com"}
+	// Include AuthURL with matching state for CSRF validation
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.Get(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 	err = session.Save(req, res)
@@ -360,6 +388,8 @@ func (f *failingStore) Save(r *http.Request, w http.ResponseWriter, s *sessions.
 func Test_CompleteUserAuth_SingleSetCookie(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	// Use a real cookie store to test Set-Cookie header behavior
 	cookieStore := sessions.NewCookieStore([]byte("test-secret-key-32-bytes-long!!"))
 	cookieStore.Options.MaxAge = 86400 * 30
@@ -368,11 +398,16 @@ func Test_CompleteUserAuth_SingleSetCookie(t *testing.T) {
 	defer func() { Store = originalStore }()
 
 	// Create request with session containing auth data
-	req, err := http.NewRequest("GET", "/auth/callback?provider=faux", nil)
+	req, err := http.NewRequest("GET", "/auth/callback?provider=faux&state="+testState, nil)
 	a.NoError(err)
 
 	// Set up session with provider data (simulating after BeginAuth)
-	sess := faux.Session{Name: "Homer Simpson", Email: "homer@example.com"}
+	// Include AuthURL with matching state for CSRF validation
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.New(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 
@@ -386,7 +421,7 @@ func Test_CompleteUserAuth_SingleSetCookie(t *testing.T) {
 	a.NotEmpty(cookies, "Expected session cookie to be set")
 
 	// Create new request with the session cookie
-	req, err = http.NewRequest("GET", "/auth/callback?provider=faux", nil)
+	req, err = http.NewRequest("GET", "/auth/callback?provider=faux&state="+testState, nil)
 	a.NoError(err)
 	for _, c := range cookies {
 		req.AddCookie(c)
@@ -415,12 +450,14 @@ func Test_CompleteUserAuth_SingleSetCookie(t *testing.T) {
 func Test_CompleteUserAuth_ParseFormError(t *testing.T) {
 	a := assert.New(t)
 
+	const testState = "test-state-token"
+
 	Store = NewProviderStore()
 
-	// Override GetState to return empty without calling FormValue
+	// Override GetState to return the test state without calling FormValue
 	// (FormValue internally calls ParseForm, consuming the body before our test can)
 	originalGetState := GetState
-	GetState = func(req *http.Request) string { return "" }
+	GetState = func(req *http.Request) string { return testState }
 	defer func() { GetState = originalGetState }()
 
 	// Create a POST request with a body that will cause ParseForm to fail.
@@ -434,9 +471,15 @@ func Test_CompleteUserAuth_ParseFormError(t *testing.T) {
 
 	// Set up session with provider data but NO AccessToken
 	// This causes FetchUser to fail, triggering the form parsing path
+	// Include AuthURL with matching state for CSRF validation
 	// Note: Must use the request AFTER GetContextWithProvider since
 	// ProviderStore keys by request pointer
-	sess := faux.Session{ID: "test-id", Name: "Test User", Email: "test@example.com"}
+	sess := faux.Session{
+		ID:      "test-id",
+		Name:    "Test User",
+		Email:   "test@example.com",
+		AuthURL: "http://example.com/auth?state=" + testState,
+	}
 	session, _ := Store.Get(req, SessionName)
 	session.Values["faux"] = gzipString(sess.Marshal())
 
@@ -457,4 +500,67 @@ type errorReader struct{}
 
 func (e *errorReader) Read(p []byte) (n int, err error) {
 	return 0, fmt.Errorf("simulated read error")
+}
+
+// Test_GetAuthURL_ReturnsErrorOnStateGenerationFailure verifies that GetAuthURL
+// returns an error (not panic) when state generation fails.
+// This is a security fix: library code should not panic on recoverable errors.
+func Test_GetAuthURL_ReturnsErrorOnStateGenerationFailure(t *testing.T) {
+	a := assert.New(t)
+
+	Store = NewProviderStore()
+
+	// Override SetState to return an error via the new error-returning API
+	// If the library properly handles errors, GetAuthURL should return the error
+	originalSetState := SetState
+	SetState = func(req *http.Request) string {
+		// Simulate state generation failure by returning empty
+		// The GenerateState function should be used instead for proper error handling
+		return ""
+	}
+	defer func() { SetState = originalSetState }()
+
+	res := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/auth?provider=faux", nil)
+	a.NoError(err)
+
+	// GetAuthURL should return an error when state is empty
+	// (empty state is now caught as a security issue)
+	_, err = GetAuthURL(res, req)
+	a.Error(err, "Expected error when SetState returns empty string")
+	if err != nil {
+		a.Contains(err.Error(), "state", "Error should mention state")
+	}
+}
+
+// Test_StateValidation_RequiresNonEmptyOriginalState verifies that state validation
+// fails when the original state in the auth URL is empty.
+// This is a security fix: empty state should NOT bypass CSRF validation.
+// See security review: state validation bypass vulnerability.
+func Test_StateValidation_RequiresNonEmptyOriginalState(t *testing.T) {
+	a := assert.New(t)
+
+	Store = NewProviderStore()
+
+	res := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/auth/callback?provider=faux&state=", nil)
+	a.NoError(err)
+
+	// Directly create a session with an AuthURL that has no state parameter
+	// This simulates a scenario where state was somehow bypassed or stripped
+	sess := faux.Session{
+		Name:    "Homer Simpson",
+		Email:   "homer@example.com",
+		AuthURL: "http://example.com/auth", // No state parameter!
+	}
+	session, _ := Store.Get(req, SessionName)
+	session.Values["faux"] = gzipString(sess.Marshal())
+	a.NoError(session.Save(req, res))
+
+	_, err = CompleteUserAuth(res, req)
+	// This SHOULD fail with an error about missing/empty state
+	a.Error(err, "Expected error when original state is empty - empty state should not bypass CSRF validation")
+	if err != nil {
+		a.Contains(err.Error(), "state", "Error should mention state token")
+	}
 }

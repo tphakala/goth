@@ -128,7 +128,11 @@ func GetAuthURL(res http.ResponseWriter, req *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sess, err := provider.BeginAuth(SetState(req))
+	state := SetState(req)
+	if state == "" {
+		return "", errors.New("state generation failed: empty state token")
+	}
+	sess, err := provider.BeginAuth(state)
 	if err != nil {
 		return "", err
 	}
@@ -232,7 +236,10 @@ func validateState(req *http.Request, sess goth.Session) error {
 	reqState := GetState(req)
 
 	originalState := authURL.Query().Get("state")
-	if originalState != "" && (originalState != reqState) {
+	if originalState == "" {
+		return errors.New("state token missing from original auth URL")
+	}
+	if originalState != reqState {
 		return errors.New("state token mismatch")
 	}
 	return nil

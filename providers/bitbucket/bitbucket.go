@@ -128,7 +128,7 @@ func (p *Provider) getUserInfo(user *goth.User, sess *Session) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s responded with a %d trying to fetch user information", p.providerName, response.StatusCode)
@@ -179,7 +179,7 @@ func (p *Provider) getEmail(user *goth.User, sess *Session) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s responded with a %d trying to fetch email addresses", p.providerName, response.StatusCode)

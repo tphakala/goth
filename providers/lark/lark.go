@@ -130,7 +130,7 @@ func (p *Provider) GetAppAccessToken() error {
 	if err != nil {
 		return fmt.Errorf("failed to send app access token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code while fetching app access token: %d", resp.StatusCode)
@@ -207,7 +207,7 @@ func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to send refresh token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code while refreshing token: %d", resp.StatusCode)
@@ -274,7 +274,7 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	if err != nil {
 		return user, fmt.Errorf("%s failed to get user information: %w", p.providerName, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("%s responded with a %d trying to fetch user information", p.providerName, resp.StatusCode)

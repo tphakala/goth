@@ -119,7 +119,7 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	if err != nil {
 		return user, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("GitHub API responded with a %d trying to fetch user information", response.StatusCode)
@@ -190,11 +190,11 @@ func getPrivateMail(p *Provider, sess *Session) (email string, err error) {
 	response, err := p.Client().Do(req)
 	if err != nil {
 		if response != nil {
-			response.Body.Close()
+			_ = response.Body.Close()
 		}
 		return email, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return email, fmt.Errorf("GitHub API responded with a %d trying to fetch user email", response.StatusCode)

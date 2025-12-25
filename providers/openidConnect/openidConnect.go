@@ -293,6 +293,8 @@ func (p *Provider) RefreshTokenWithIDToken(refreshToken string) (*RefreshTokenRe
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Non-200 response from RefreshToken: %d, WWW-Authenticate=%s", resp.StatusCode, resp.Header.Get("WWW-Authenticate"))
 	}
@@ -301,7 +303,6 @@ func (p *Provider) RefreshTokenWithIDToken(refreshToken string) (*RefreshTokenRe
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
 
 	refreshTokenResponse := &RefreshTokenResponse{}
 
@@ -402,7 +403,7 @@ func (p *Provider) fetchUserInfo(url, accessToken string) (map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Non-200 response from UserInfo: %d, WWW-Authenticate=%s", resp.StatusCode, resp.Header.Get("WWW-Authenticate"))
@@ -423,7 +424,7 @@ func getOpenIDConfig(p *Provider, openIDAutoDiscoveryURL string) (*OpenIDConfig,
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, fmt.Errorf("Non-success code for Discovery URL: %d", res.StatusCode)

@@ -94,10 +94,11 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	response, err := c.Do(req)
 	if err != nil {
 		if response != nil {
-			response.Body.Close()
+			_ = response.Body.Close()
 		}
 		return user, err
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("%s responded with a %d trying to fetch user information", p.providerName, response.StatusCode)

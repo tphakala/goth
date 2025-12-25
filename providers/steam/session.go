@@ -55,7 +55,7 @@ func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string,
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err

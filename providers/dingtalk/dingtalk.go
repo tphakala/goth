@@ -203,7 +203,7 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 		p.logDebug("Failed to send request: %v", err)
 		return user, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	p.logDebug("Received response status code: %d", response.StatusCode)
 
@@ -324,7 +324,7 @@ func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 		p.logDebug("Failed to send refresh token request: %v", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	p.logDebug("Refresh token response status code: %d", resp.StatusCode)
 

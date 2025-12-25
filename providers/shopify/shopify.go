@@ -117,11 +117,11 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	resp, err := p.Client().Do(req)
 	if err != nil {
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		return shop, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check our response status.
 	if resp.StatusCode != http.StatusOK {

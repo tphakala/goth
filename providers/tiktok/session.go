@@ -72,7 +72,7 @@ func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string,
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	err = json.Unmarshal(bodyBytes, &tokenResp)
 	if err != nil {

@@ -3,7 +3,6 @@
 package auth0
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -143,18 +142,18 @@ func newConfig(provider *Provider, scopes []string) *oauth2.Config {
 }
 
 func userFromReader(r io.Reader, user *goth.User) error {
-	var rawData map[string]interface{}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	err := json.Unmarshal(buf.Bytes(), &rawData)
+	data, err := io.ReadAll(r)
 	if err != nil {
+		return fmt.Errorf("failed to read user data: %w", err)
+	}
+
+	var rawData map[string]interface{}
+	if err := json.Unmarshal(data, &rawData); err != nil {
 		return err
 	}
 
 	u := auth0UserResp{}
-	err = json.Unmarshal(buf.Bytes(), &u)
-	if err != nil {
+	if err := json.Unmarshal(data, &u); err != nil {
 		return err
 	}
 	user.Email = u.Email

@@ -82,10 +82,10 @@ func Test_FetchUser(t *testing.T) {
 					switch req.URL.Path {
 					case "/api/auth.test":
 						res.WriteHeader(http.StatusOK)
-						json.NewEncoder(res).Encode(testAuthTestResponseData)
+						_ = json.NewEncoder(res).Encode(testAuthTestResponseData)
 					case "/api/users.info":
 						res.WriteHeader(http.StatusOK)
-						json.NewEncoder(res).Encode(testUserInfoResponseData)
+						_ = json.NewEncoder(res).Encode(testUserInfoResponseData)
 					default:
 						res.WriteHeader(http.StatusNotFound)
 					}
@@ -112,7 +112,7 @@ func Test_FetchUser(t *testing.T) {
 					switch req.URL.Path {
 					case "/api/auth.test":
 						res.WriteHeader(http.StatusOK)
-						json.NewEncoder(res).Encode(testAuthTestResponseData)
+						_ = json.NewEncoder(res).Encode(testAuthTestResponseData)
 					default:
 						res.WriteHeader(http.StatusNotFound)
 					}
@@ -158,7 +158,7 @@ func Test_FetchUser(t *testing.T) {
 					switch req.URL.Path {
 					case "/api/auth.test":
 						res.WriteHeader(http.StatusOK)
-						json.NewEncoder(res).Encode(testAuthTestResponseData)
+						_ = json.NewEncoder(res).Encode(testAuthTestResponseData)
 					case "/api/users.info":
 						res.WriteHeader(http.StatusForbidden)
 					}

@@ -3,35 +3,16 @@ version: "2"
 run:
   timeout: 5m
   modules-download-mode: readonly
-  # Skip examples directory (demo code, not production)
-  exclude-dirs:
-    - ^examples$
 
 linters:
   default: standard
 
   settings:
-    errcheck:
-      exclude-functions:
-        - fmt.Fprint
-        - fmt.Fprintf
-        - fmt.Fprintln
-        - fmt.Printf
-        - fmt.Println
-        - (net/http.ResponseWriter).Write
-        - (*net/http.Request).ParseForm
-        - (*github.com/gorilla/sessions.Session).Save
-        - (*bytes.Buffer).ReadFrom
-        - io.Copy
-        - (io.Closer).Close
-        - os.Setenv
-        - (*encoding/json.Encoder).Encode
-
     staticcheck:
       # Disable some noisy checks for legacy code
       checks:
         - "-ST1005"  # Error string capitalization
 
 issues:
-  max-issues-per-linter: 50
-  max-same-issues: 10
+  max-issues-per-linter: 0
+  max-same-issues: 0

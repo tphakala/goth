@@ -99,7 +99,7 @@ func twitterProviderAuthenticate() *Provider {
 func init() {
 	p := pat.New()
 	p.Get("/oauth/request_token", func(res http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
+		_, _ = fmt.Fprint(res, "oauth_token=TOKEN&oauth_token_secret=SECRET")
 	})
 	p.Get("/1.1/account/verify_credentials.json", func(res http.ResponseWriter, req *http.Request) {
 		data := map[string]string{
@@ -111,7 +111,7 @@ func init() {
 			"location":          "Springfield",
 			"email":             "duffman@springfield.com",
 		}
-		json.NewEncoder(res).Encode(&data)
+		_ = json.NewEncoder(res).Encode(&data)
 	})
 	ts := httptest.NewServer(p)
 

@@ -36,11 +36,8 @@ func TestNewConfigDefaults(t *testing.T) {
 }
 
 func TestUrlsConfigurableWithEnvVars(t *testing.T) {
-	oldEnvVar := os.Getenv(domainEnvKey)
-	defer os.Setenv(domainEnvKey, oldEnvVar)
-
 	a := assert.New(t)
-	os.Setenv(domainEnvKey, "example.com")
+	t.Setenv(domainEnvKey, "example.com")
 	p := influxcloudProvider()
 	a.Equal("https://example.com/api/v1/user", p.UserAPIEndpoint)
 	c := p.Config

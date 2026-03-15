@@ -45,6 +45,8 @@ func init() {
 
 	cookieStore := sessions.NewCookieStore(key)
 	cookieStore.Options.HttpOnly = true
+	cookieStore.Options.Secure = true
+	cookieStore.Options.SameSite = http.SameSiteLaxMode
 	Store = cookieStore
 	defaultStore = Store
 }

@@ -49,6 +49,19 @@ const (
 	clockSkew = 10 * time.Second
 )
 
+const (
+	// maxResponseSize limits the size of responses read from the OpenID
+	// provider to prevent memory exhaustion from malicious responses.
+	maxResponseSize = 1 << 20 // 1 MB
+)
+
+// readResponseBody reads the response body up to maxResponseSize bytes.
+// Returns a clear error if the response exceeds the limit.
+func readResponseBody(resp *http.Response) ([]byte, error) {
+	resp.Body = http.MaxBytesReader(nil, resp.Body, maxResponseSize)
+	return io.ReadAll(resp.Body)
+}
+
 // Provider is the implementation of `goth.Provider` for accessing OpenID Connect provider
 type Provider struct {
 	ClientKey       string
@@ -299,7 +312,7 @@ func (p *Provider) RefreshTokenWithIDToken(refreshToken string) (*RefreshTokenRe
 		return nil, fmt.Errorf("Non-200 response from RefreshToken: %d, WWW-Authenticate=%s", resp.StatusCode, resp.Header.Get("WWW-Authenticate"))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +457,7 @@ func (p *Provider) fetchUserInfo(url, accessToken string) (map[string]interface{
 
 	// The UserInfo Claims MUST be returned as the members of a JSON object
 	// http://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
-	data, err := io.ReadAll(resp.Body)
+	data, err := readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +476,7 @@ func getOpenIDConfig(p *Provider, openIDAutoDiscoveryURL string) (*OpenIDConfig,
 		return nil, fmt.Errorf("Non-success code for Discovery URL: %d", res.StatusCode)
 	}
 
-	body, err := io.ReadAll(res.Body)
+	body, err := readResponseBody(res)
 	if err != nil {
 		return nil, err
 	}

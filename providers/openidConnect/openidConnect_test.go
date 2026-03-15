@@ -210,6 +210,27 @@ func Test_EndSessionURL_NoEndpoint(t *testing.T) {
 	a.Contains(err.Error(), "does not support RP-Initiated Logout")
 }
 
+func Test_GetOpenIDConfig_RejectsOversizedResponse(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	// Create a server that returns a response larger than maxResponseSize
+	bigServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Write 2MB of data (exceeds 1MB limit)
+		w.Header().Set("Content-Type", "application/json")
+		data := make([]byte, 2<<20)
+		for i := range data {
+			data[i] = 'x'
+		}
+		_, _ = w.Write(data)
+	}))
+	defer bigServer.Close()
+
+	p := &Provider{HTTPClient: bigServer.Client()}
+	_, err := getOpenIDConfig(p, bigServer.URL)
+	a.ErrorContains(err, "http: request body too large")
+}
+
 func openidConnectProvider() *Provider {
 	provider, _ := New(os.Getenv("OPENID_CONNECT_KEY"), os.Getenv("OPENID_CONNECT_SECRET"), "http://localhost/foo", server.URL)
 	return provider

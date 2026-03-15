@@ -231,6 +231,35 @@ func Test_GetOpenIDConfig_RejectsOversizedResponse(t *testing.T) {
 	a.ErrorContains(err, "http: request body too large")
 }
 
+func Test_ValidateClaims_MissingExp(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	provider := openidConnectProvider()
+
+	claims := map[string]interface{}{
+		"aud": os.Getenv("OPENID_CONNECT_KEY"),
+		"iss": "https://accounts.google.com",
+	}
+	_, err := provider.validateClaims(claims)
+	a.EqualError(err, "missing required exp claim in token")
+}
+
+func Test_ValidateClaims_InvalidExpType(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	provider := openidConnectProvider()
+
+	claims := map[string]interface{}{
+		"aud": os.Getenv("OPENID_CONNECT_KEY"),
+		"iss": "https://accounts.google.com",
+		"exp": "not-a-number",
+	}
+	_, err := provider.validateClaims(claims)
+	a.EqualError(err, "invalid exp claim type in token")
+}
+
 func openidConnectProvider() *Provider {
 	provider, _ := New(os.Getenv("OPENID_CONNECT_KEY"), os.Getenv("OPENID_CONNECT_SECRET"), "http://localhost/foo", server.URL)
 	return provider

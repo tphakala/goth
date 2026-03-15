@@ -383,10 +383,16 @@ func (p *Provider) validateClaims(claims map[string]interface{}) (time.Time, err
 		return time.Time{}, errors.New("issuer in token does not match issuer in OpenIDConfig discovery")
 	}
 
-	// expiry is required for JWT, not for UserInfoResponse
-	// is actually a int64, so force it in to that type
-	expiryClaim := int64(claims[expiryClaim].(float64))
-	expiry := time.Unix(expiryClaim, 0)
+	// expiry is required for JWT
+	expiryVal, ok := claims[expiryClaim]
+	if !ok {
+		return time.Time{}, errors.New("missing required exp claim in token")
+	}
+	expiryFloat, ok := expiryVal.(float64)
+	if !ok {
+		return time.Time{}, errors.New("invalid exp claim type in token")
+	}
+	expiry := time.Unix(int64(expiryFloat), 0)
 	if expiry.Add(clockSkew).Before(time.Now()) {
 		return time.Time{}, errors.New("user info JWT token is expired")
 	}
@@ -442,7 +448,10 @@ func (p *Provider) getUserInfo(accessToken string, claims map[string]interface{}
 
 // fetch and decode JSON from the given UserInfo URL
 func (p *Provider) fetchUserInfo(url, accessToken string) (map[string]interface{}, error) {
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create userinfo request: %w", err)
+	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 
 	resp, err := p.Client().Do(req)

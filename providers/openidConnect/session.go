@@ -62,7 +62,9 @@ func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string,
 	s.RefreshToken = token.RefreshToken
 	s.ExpiresAt = token.Expiry
 	if idToken := token.Extra("id_token"); idToken != nil {
-		s.IDToken = idToken.(string)
+		if str, ok := idToken.(string); ok {
+			s.IDToken = str
+		}
 	}
 	return token.AccessToken, err
 }

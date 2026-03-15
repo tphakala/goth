@@ -63,7 +63,7 @@ func Test_Authorize_RejectsRedirectURIMismatch(t *testing.T) {
 
 	_, err := s.Authorize(provider, params)
 	a.Error(err)
-	a.Contains(err.Error(), "redirect_uri")
+	a.Contains(err.Error(), "redirect_uri mismatch")
 }
 
 // mapParams implements goth.Params for testing

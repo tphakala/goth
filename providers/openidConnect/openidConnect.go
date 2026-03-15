@@ -438,9 +438,13 @@ func (p *Provider) getUserInfo(accessToken string, claims map[string]interface{}
 		return fmt.Errorf("userinfo 'sub' claim (%s) did not match id_token 'sub' claim (%s)", userInfoSubject, subject)
 	}
 
-	// Merge in userinfo claims in case id_token claims contained some that userinfo did not
+	// Merge in userinfo claims, but do not overwrite claims already present
+	// in the ID token. ID token claims are signed and should take precedence
+	// over unsigned UserInfo response claims.
 	for k, v := range userInfoClaims {
-		claims[k] = v
+		if _, exists := claims[k]; !exists {
+			claims[k] = v
+		}
 	}
 
 	return nil

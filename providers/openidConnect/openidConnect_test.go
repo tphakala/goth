@@ -260,6 +260,39 @@ func Test_ValidateClaims_InvalidExpType(t *testing.T) {
 	a.EqualError(err, "invalid exp claim type in token")
 }
 
+func Test_GetUserInfo_PreservesIDTokenClaims(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	// Mock UserInfo endpoint that returns claims that differ from the ID token
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"sub":"user123","email":"eve@evil.com","picture":"https://pic.url"}`)
+	}))
+	defer userInfoServer.Close()
+
+	provider, err := NewCustomisedURL(
+		"client_id", "client_secret", "http://localhost/callback",
+		"https://example.com/auth", "https://example.com/token",
+		"https://example.com", userInfoServer.URL, "",
+	)
+	a.NoError(err)
+
+	// Simulate ID token claims with email already set
+	claims := map[string]interface{}{
+		"sub":   "user123",
+		"email": "alice@idp.com",
+	}
+
+	err = provider.getUserInfo("fake-access-token", claims)
+	a.NoError(err)
+
+	// ID token email should be preserved, not overwritten by UserInfo
+	a.Equal("alice@idp.com", claims["email"])
+	// But new claims from UserInfo should be added
+	a.Equal("https://pic.url", claims["picture"])
+}
+
 func openidConnectProvider() *Provider {
 	provider, _ := New(os.Getenv("OPENID_CONNECT_KEY"), os.Getenv("OPENID_CONNECT_SECRET"), "http://localhost/foo", server.URL)
 	return provider

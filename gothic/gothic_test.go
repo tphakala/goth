@@ -244,8 +244,25 @@ func Test_Logout(t *testing.T) {
 func Test_SetState(t *testing.T) {
 	a := assert.New(t)
 
+	// State should always be randomly generated, even if query param is present
 	req, _ := http.NewRequest("GET", "/auth?state=state", nil)
-	a.Equal(SetState(req), "state")
+	state := SetState(req)
+	a.NotEqual("state", state)
+	a.NotEmpty(state)
+}
+
+func Test_SetState_IgnoresUserSuppliedState(t *testing.T) {
+	a := assert.New(t)
+
+	// Even when a state query param is provided, SetState should
+	// generate its own random state (to prevent Login CSRF)
+	req, _ := http.NewRequest("GET", "/auth?state=attacker_controlled", nil)
+	state := SetState(req)
+
+	a.NotEqual("attacker_controlled", state)
+	a.NotEmpty(state)
+	// State should be base64-encoded random bytes (at least 64 bytes -> ~86 chars)
+	a.Greater(len(state), 40)
 }
 
 func Test_GetState(t *testing.T) {
@@ -260,14 +277,26 @@ func Test_StateValidation(t *testing.T) {
 
 	Store = NewProviderStore()
 	res := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/auth?provider=faux&state=state_REAL", nil)
+	req, err := http.NewRequest("GET", "/auth?provider=faux", nil)
 	a.NoError(err)
 
 	BeginAuthHandler(res, req)
 	session, _ := Store.Get(req, SessionName)
 
+	// Extract the server-generated state from the stored session
+	sessStr, ok := session.Values["faux"].(string)
+	a.True(ok, "session value should be a string")
+	fauxSess, err := fauxProvider.UnmarshalSession(ungzipString(sessStr))
+	a.NoError(err)
+	authURL, err := fauxSess.GetAuthURL()
+	a.NoError(err)
+	parsed, err := url.Parse(authURL)
+	a.NoError(err)
+	generatedState := parsed.Query().Get("state")
+	a.NotEmpty(generatedState)
+
 	// Assert that matching states will return a nil error
-	req, _ = http.NewRequest("GET", "/auth/callback?provider=faux&state=state_REAL", nil)
+	req, _ = http.NewRequest("GET", "/auth/callback?provider=faux&state="+generatedState, nil)
 	a.NoError(session.Save(req, res))
 	_, err = CompleteUserAuth(res, req)
 	a.NoError(err)

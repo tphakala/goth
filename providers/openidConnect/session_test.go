@@ -45,3 +45,30 @@ func Test_String(t *testing.T) {
 
 	a.Equal(s.String(), s.Marshal())
 }
+
+func Test_Authorize_RejectsRedirectURIMismatch(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	provider := openidConnectProvider()
+	s := &Session{
+		AuthURL: "https://accounts.google.com/o/oauth2/v2/auth",
+	}
+
+	// Create params with a different redirect_uri
+	params := mapParams{
+		"code":         "test_code",
+		"redirect_uri": "https://evil.example.com/callback",
+	}
+
+	_, err := s.Authorize(provider, params)
+	a.Error(err)
+	a.Contains(err.Error(), "redirect_uri")
+}
+
+// mapParams implements goth.Params for testing
+type mapParams map[string]string
+
+func (m mapParams) Get(key string) string {
+	return m[key]
+}

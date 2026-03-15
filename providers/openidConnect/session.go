@@ -3,6 +3,7 @@ package openidConnect
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -33,9 +34,12 @@ func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string,
 
 	var authParams []oauth2.AuthCodeOption
 
-	// override redirect_uri if passed as param
+	// override redirect_uri if passed as param, but validate it matches configured callback
 	redirectURL := params.Get("redirect_uri")
 	if redirectURL != "" {
+		if redirectURL != p.CallbackURL {
+			return "", fmt.Errorf("redirect_uri mismatch: got %q, expected %q", redirectURL, p.CallbackURL)
+		}
 		authParams = append(authParams, oauth2.SetAuthURLParam("redirect_uri", redirectURL))
 	}
 

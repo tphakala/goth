@@ -330,9 +330,11 @@ func (p *Provider) EndSessionURL(idTokenHint, postLogoutRedirectURI, state strin
 	params := endSessionURL.Query()
 	if idTokenHint != "" {
 		params.Set("id_token_hint", idTokenHint)
-	} else {
+	} else if p.ClientKey != "" {
 		// Without id_token_hint, client_id is needed to identify the RP
 		params.Set("client_id", p.ClientKey)
+	} else {
+		return "", errors.New("missing RP identifier: provide id_token_hint or client_id")
 	}
 	if postLogoutRedirectURI != "" {
 		params.Set("post_logout_redirect_uri", postLogoutRedirectURI)

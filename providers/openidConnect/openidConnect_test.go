@@ -173,6 +173,32 @@ func Test_EndSessionURL(t *testing.T) {
 	a.NotContains(logoutURL, "post_logout_redirect_uri=")
 }
 
+func Test_EndSessionURL_MissingRPIdentifier(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	// Provider with empty client key and no id_token_hint
+	provider, _ := NewCustomisedURL(
+		"", // empty client key
+		"client_secret",
+		"http://localhost/callback",
+		"https://example.com/auth",
+		"https://example.com/token",
+		"https://example.com",
+		"https://example.com/userinfo",
+		"https://example.com/logout",
+	)
+
+	_, err := provider.EndSessionURL("", "http://localhost/post-logout", "")
+	a.Error(err)
+	a.Contains(err.Error(), "missing RP identifier")
+
+	// With id_token_hint it should still work even without client_id
+	logoutURL, err := provider.EndSessionURL("id_token_value", "", "")
+	a.NoError(err)
+	a.Contains(logoutURL, "id_token_hint=id_token_value")
+}
+
 func Test_EndSessionURL_NoEndpoint(t *testing.T) {
 	t.Parallel()
 	a := assert.New(t)

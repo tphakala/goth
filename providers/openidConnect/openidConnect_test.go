@@ -228,7 +228,7 @@ func Test_GetOpenIDConfig_RejectsOversizedResponse(t *testing.T) {
 
 	p := &Provider{HTTPClient: bigServer.Client()}
 	_, err := getOpenIDConfig(p, bigServer.URL)
-	a.Error(err)
+	a.ErrorContains(err, "http: request body too large")
 }
 
 func openidConnectProvider() *Provider {

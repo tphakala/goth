@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [ '1.25.8', '1.26.x' ]
+        go-version: [ '1.26.x' ]
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -46,9 +46,9 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: Format
       run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.8'
+      if: matrix.os == 'ubuntu-latest'
     - name: Check go mod tidy
       run: go mod tidy && git diff --exit-code go.mod go.sum
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.8'
+      if: matrix.os == 'ubuntu-latest'
     - name: Test
       run: go test -race ./...

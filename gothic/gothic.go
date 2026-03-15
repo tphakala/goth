@@ -73,18 +73,13 @@ func BeginAuthHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 // SetState sets the state string associated with the given request.
-// If no state string is associated with the request, one will be generated.
+// State is always generated server-side to prevent Login CSRF attacks.
 // This state is sent to the provider and can be retrieved during the
 // callback.
 var SetState = func(req *http.Request) string {
-	state := req.URL.Query().Get("state")
-	if len(state) > 0 {
-		return state
-	}
-
-	// If a state query param is not passed in, generate a random
-	// base64-encoded nonce so that the state on the auth URL
-	// is unguessable, preventing CSRF attacks, as described in
+	// Always generate a cryptographically random state to prevent
+	// Login CSRF attacks. User-supplied state values are not used
+	// because an attacker could set a known state to forge the callback.
 	//
 	// https://auth0.com/docs/protocols/oauth2/oauth-state#keep-reading
 	nonceBytes := make([]byte, 64)

@@ -244,25 +244,14 @@ func Test_Logout(t *testing.T) {
 func Test_SetState(t *testing.T) {
 	a := assert.New(t)
 
-	// State should always be randomly generated, even if query param is present
-	req, _ := http.NewRequest("GET", "/auth?state=state", nil)
-	state := SetState(req)
-	a.NotEqual("state", state)
-	a.NotEmpty(state)
-}
-
-func Test_SetState_IgnoresUserSuppliedState(t *testing.T) {
-	a := assert.New(t)
-
-	// Even when a state query param is provided, SetState should
-	// generate its own random state (to prevent Login CSRF)
-	req, _ := http.NewRequest("GET", "/auth?state=attacker_controlled", nil)
+	// State should always be randomly generated, even if a `state` query param is present.
+	req, _ := http.NewRequest("GET", "/auth?state=user-supplied-state", nil)
 	state := SetState(req)
 
-	a.NotEqual("attacker_controlled", state)
-	a.NotEmpty(state)
-	// State should be base64-encoded random bytes (at least 64 bytes -> ~86 chars)
-	a.Greater(len(state), 40)
+	a.NotEqual("user-supplied-state", state, "SetState should ignore user-supplied state")
+
+	// The state is 64 random bytes, base64-URL-encoded. This results in an 88-character string.
+	a.Len(state, 88)
 }
 
 func Test_GetState(t *testing.T) {

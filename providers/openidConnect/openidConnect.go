@@ -2,6 +2,7 @@ package openidConnect
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -127,16 +128,50 @@ func New(clientKey, secret, callbackURL, openIDAutoDiscoveryURL string, scopes .
 // NewNamed is similar to New(...) but can be used to set a custom name for the
 // provider in order to use multiple OIDC providers
 func NewNamed(name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL string, scopes ...string) (*Provider, error) {
+	return NewCustomisedHttpClientContext(context.Background(), nil, name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL, scopes...)
+}
+
+// NewCustomisedHttpClient is similar to NewNamed(...) but uses the given HTTP
+// client for the discovery request and for every later request of the provider.
+// A nil client falls back to http.DefaultClient, which has no timeout.
+func NewCustomisedHttpClient(client *http.Client, name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL string, scopes ...string) (*Provider, error) {
+	return NewCustomisedHttpClientContext(context.Background(), client, name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL, scopes...)
+}
+
+// NewCustomisedHttpClientContext is similar to NewCustomisedHttpClient(...) but
+// ctx bounds and cancels the discovery request. ctx applies to the discovery
+// request only, it must not be nil, and when it ends the constructor returns an
+// error wrapping the context error. The client is used for discovery and for
+// every later request of the provider (code exchange, user info and token
+// refresh); a nil client falls back to http.DefaultClient, which has no timeout.
+func NewCustomisedHttpClientContext(ctx context.Context, client *http.Client, name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL string, scopes ...string) (*Provider, error) {
+	p := newBaseProvider(name, clientKey, secret, callbackURL, client)
+
+	openIDConfig, err := getOpenIDConfig(ctx, p, openIDAutoDiscoveryURL)
+	if err != nil {
+		return nil, err
+	}
+	p.OpenIDConfig = openIDConfig
+
+	p.config = newConfig(p, scopes, openIDConfig)
+	return p, nil
+}
+
+// newBaseProvider builds a Provider with the default claim mappings and the
+// provider name derived from name: empty gives "openid-connect", anything else
+// gives "<lowercase name>-oidc".
+func newBaseProvider(name, clientKey, secret, callbackURL string, httpClient *http.Client) *Provider {
 	switch len(name) {
 	case 0:
 		name = "openid-connect"
 	default:
 		name = fmt.Sprintf("%s-oidc", strings.ToLower(name))
 	}
-	p := &Provider{
+	return &Provider{
 		ClientKey:   clientKey,
 		Secret:      secret,
 		CallbackURL: callbackURL,
+		HTTPClient:  httpClient,
 
 		UserIdClaims:    []string{subjectClaim},
 		NameClaims:      []string{NameClaim},
@@ -149,41 +184,17 @@ func NewNamed(name, clientKey, secret, callbackURL, openIDAutoDiscoveryURL strin
 
 		providerName: name,
 	}
-
-	openIDConfig, err := getOpenIDConfig(p, openIDAutoDiscoveryURL)
-	if err != nil {
-		return nil, err
-	}
-	p.OpenIDConfig = openIDConfig
-
-	p.config = newConfig(p, scopes, openIDConfig)
-	return p, nil
 }
 
 // NewCustomisedURL is similar to New(...) but can be used to set custom URLs hence omit the auto-discovery step
 func NewCustomisedURL(clientKey, secret, callbackURL, authURL, tokenURL, issuerURL, userInfoURL, endSessionEndpointURL string, scopes ...string) (*Provider, error) {
-	p := &Provider{
-		ClientKey:   clientKey,
-		Secret:      secret,
-		CallbackURL: callbackURL,
-		OpenIDConfig: &OpenIDConfig{
-			AuthEndpoint:       authURL,
-			TokenEndpoint:      tokenURL,
-			Issuer:             issuerURL,
-			UserInfoEndpoint:   userInfoURL,
-			EndSessionEndpoint: endSessionEndpointURL,
-		},
-
-		UserIdClaims:    []string{subjectClaim},
-		NameClaims:      []string{NameClaim},
-		NickNameClaims:  []string{NicknameClaim, PreferredUsernameClaim},
-		EmailClaims:     []string{EmailClaim},
-		AvatarURLClaims: []string{PictureClaim},
-		FirstNameClaims: []string{GivenNameClaim},
-		LastNameClaims:  []string{FamilyNameClaim},
-		LocationClaims:  []string{AddressClaim},
-
-		providerName: "openid-connect",
+	p := newBaseProvider("", clientKey, secret, callbackURL, nil)
+	p.OpenIDConfig = &OpenIDConfig{
+		AuthEndpoint:       authURL,
+		TokenEndpoint:      tokenURL,
+		Issuer:             issuerURL,
+		UserInfoEndpoint:   userInfoURL,
+		EndSessionEndpoint: endSessionEndpointURL,
 	}
 
 	p.config = newConfig(p, scopes, p.OpenIDConfig)
@@ -275,7 +286,7 @@ func (p *Provider) RefreshTokenAvailable() bool {
 // RefreshToken get new access token based on the refresh token
 func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 	token := &oauth2.Token{RefreshToken: refreshToken}
-	ts := p.config.TokenSource(oauth2.NoContext, token)
+	ts := p.config.TokenSource(goth.ContextForClient(p.Client()), token)
 	newToken, err := ts.Token()
 	if err != nil {
 		return nil, err
@@ -478,8 +489,12 @@ func (p *Provider) fetchUserInfo(url, accessToken string) (map[string]interface{
 	return unMarshal(data)
 }
 
-func getOpenIDConfig(p *Provider, openIDAutoDiscoveryURL string) (*OpenIDConfig, error) {
-	res, err := p.Client().Get(openIDAutoDiscoveryURL)
+func getOpenIDConfig(ctx context.Context, p *Provider, openIDAutoDiscoveryURL string) (*OpenIDConfig, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, openIDAutoDiscoveryURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := p.Client().Do(req)
 	if err != nil {
 		return nil, err
 	}

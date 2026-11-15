@@ -1,12 +1,16 @@
 package openidConnect
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/markbates/goth"
 	"github.com/stretchr/testify/assert"
@@ -62,6 +66,7 @@ func Test_NewCustomisedURL(t *testing.T) {
 	a.Equal("https://www.googleapis.com/oauth2/v4/token", provider.OpenIDConfig.TokenEndpoint)
 	a.Equal("https://www.googleapis.com/oauth2/v3/userinfo", provider.OpenIDConfig.UserInfoEndpoint)
 	a.Equal("", provider.OpenIDConfig.EndSessionEndpoint)
+	a.Equal("openid-connect", provider.Name())
 }
 
 func Test_BeginAuth(t *testing.T) {
@@ -227,7 +232,7 @@ func Test_GetOpenIDConfig_RejectsOversizedResponse(t *testing.T) {
 	defer bigServer.Close()
 
 	p := &Provider{HTTPClient: bigServer.Client()}
-	_, err := getOpenIDConfig(p, bigServer.URL)
+	_, err := getOpenIDConfig(context.Background(), p, bigServer.URL)
 	a.ErrorContains(err, "http: request body too large")
 }
 
@@ -296,4 +301,137 @@ func Test_GetUserInfo_PreservesIDTokenClaims(t *testing.T) {
 func openidConnectProvider() *Provider {
 	provider, _ := New(os.Getenv("OPENID_CONNECT_KEY"), os.Getenv("OPENID_CONNECT_SECRET"), "http://localhost/foo", server.URL)
 	return provider
+}
+
+// countingTransport counts the round trips that pass through a client.
+type countingTransport struct {
+	count atomic.Int32
+}
+
+func (c *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	c.count.Add(1)
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+func Test_NewCustomisedHttpClientContext_UsesClientForDiscovery(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	transport := &countingTransport{}
+	client := &http.Client{Transport: transport}
+
+	provider, err := NewCustomisedHttpClientContext(context.Background(), client, "", "key", "secret", "http://localhost/foo", server.URL)
+	a.NoError(err)
+	a.Equal(int32(1), transport.count.Load())
+	a.Same(client, provider.HTTPClient)
+	a.Equal("openid-connect", provider.Name())
+	a.Equal("https://accounts.google.com", provider.OpenIDConfig.Issuer)
+
+	named, err := NewCustomisedHttpClient(client, "Foo", "key", "secret", "http://localhost/foo", server.URL)
+	a.NoError(err)
+	a.Equal(int32(2), transport.count.Load())
+	a.Same(client, named.HTTPClient)
+	a.Equal("foo-oidc", named.Name())
+}
+
+func Test_NewCustomisedHttpClientContext_StopsDiscovery(t *testing.T) {
+	t.Parallel()
+
+	const returnBound = 5 * time.Second
+
+	tests := []struct {
+		name   string
+		client *http.Client
+		ctx    func() (context.Context, context.CancelFunc)
+		check  func(a *assert.Assertions, err error)
+	}{
+		{
+			name:   "cancelled context",
+			client: &http.Client{},
+			ctx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				time.AfterFunc(50*time.Millisecond, cancel)
+				return ctx, cancel
+			},
+			check: func(a *assert.Assertions, err error) { a.ErrorIs(err, context.Canceled) },
+		},
+		{
+			name:   "context deadline",
+			client: &http.Client{},
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 50*time.Millisecond)
+			},
+			check: func(a *assert.Assertions, err error) { a.ErrorIs(err, context.DeadlineExceeded) },
+		},
+		{
+			name:   "client timeout",
+			client: &http.Client{Timeout: 50 * time.Millisecond},
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithCancel(context.Background())
+			},
+			check: func(a *assert.Assertions, err error) {
+				var urlErr *url.Error
+				a.True(errors.As(err, &urlErr) && urlErr.Timeout(), "expected a timeout error, got %v", err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			a := assert.New(t)
+
+			release := make(chan struct{})
+			blocking := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				select {
+				case <-r.Context().Done():
+				case <-release:
+				}
+			}))
+			defer blocking.Close()
+			defer close(release)
+
+			ctx, cancel := tt.ctx()
+			defer cancel()
+
+			start := time.Now()
+			provider, err := NewCustomisedHttpClientContext(ctx, tt.client, "", "key", "secret", "http://localhost/foo", blocking.URL)
+			a.Less(time.Since(start), returnBound)
+			a.Nil(provider)
+			a.Error(err)
+			tt.check(a, err)
+		})
+	}
+}
+
+func Test_RefreshToken_UsesHTTPClient(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"access_token":"new-access","token_type":"Bearer","refresh_token":"new-refresh","expires_in":3600}`)
+	}))
+	defer tokenServer.Close()
+
+	provider, err := NewCustomisedURL("key", "secret", "http://localhost/foo",
+		"https://accounts.example.com/auth", tokenServer.URL, "https://accounts.example.com", "", "")
+	a.NoError(err)
+
+	transport := &countingTransport{}
+	provider.HTTPClient = &http.Client{Transport: transport}
+
+	token, err := provider.RefreshToken("r")
+	a.NoError(err)
+	a.Equal("new-access", token.AccessToken)
+	a.Equal(int32(1), transport.count.Load())
+}
+
+func Test_NewCustomisedHttpClientContext_RejectsInvalidDiscoveryURL(t *testing.T) {
+	t.Parallel()
+	a := assert.New(t)
+
+	provider, err := NewCustomisedHttpClientContext(context.Background(), nil, "", "key", "secret", "http://localhost/foo", "http://bad\x7furl/")
+	a.Nil(provider)
+	a.Error(err)
 }

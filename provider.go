@@ -61,6 +61,24 @@ func UseProviders(viders ...Provider) {
 	}
 }
 
+// ReplaceProviders atomically replaces the whole provider registry with the
+// given providers. Readers such as GetProvider see either the old registry or
+// the new one, never an empty or partial registry in between, unlike a
+// ClearProviders call followed by UseProviders. If you pass providers with the
+// same name more than once, the last will be used. Calling it with no
+// providers empties the registry.
+func ReplaceProviders(viders ...Provider) {
+	next := make(Providers, len(viders))
+	for _, provider := range viders {
+		next[provider.Name()] = provider
+	}
+
+	providersHat.Lock()
+	defer providersHat.Unlock()
+
+	providers = next
+}
+
 // GetProviders returns a list of all the providers currently in use.
 func GetProviders() Providers {
 	return providers

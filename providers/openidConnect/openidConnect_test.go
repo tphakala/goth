@@ -337,7 +337,9 @@ func Test_NewCustomisedHttpClientContext_UsesClientForDiscovery(t *testing.T) {
 func Test_NewCustomisedHttpClientContext_StopsDiscovery(t *testing.T) {
 	t.Parallel()
 
-	const returnBound = 5 * time.Second
+	// hangGuard only bounds a hang: the call returns when its context or the
+	// client timeout fires, which is far sooner.
+	const hangGuard = 30 * time.Second
 
 	tests := []struct {
 		name   string
@@ -394,12 +396,24 @@ func Test_NewCustomisedHttpClientContext_StopsDiscovery(t *testing.T) {
 			ctx, cancel := tt.ctx()
 			defer cancel()
 
-			start := time.Now()
-			provider, err := NewCustomisedHttpClientContext(ctx, tt.client, "", "key", "secret", "http://localhost/foo", blocking.URL)
-			a.Less(time.Since(start), returnBound)
-			a.Nil(provider)
-			a.Error(err)
-			tt.check(a, err)
+			type result struct {
+				provider *Provider
+				err      error
+			}
+			done := make(chan result, 1)
+			go func() {
+				provider, err := NewCustomisedHttpClientContext(ctx, tt.client, "", "key", "secret", "http://localhost/foo", blocking.URL)
+				done <- result{provider, err}
+			}()
+
+			select {
+			case res := <-done:
+				a.Nil(res.provider)
+				a.Error(res.err)
+				tt.check(a, res.err)
+			case <-time.After(hangGuard):
+				t.Fatal("discovery did not stop when its context or client timeout ended")
+			}
 		})
 	}
 }

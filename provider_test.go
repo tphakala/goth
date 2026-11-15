@@ -124,3 +124,21 @@ func Test_ReplaceProviders_NeverExposesMissingProvider(t *testing.T) {
 	default:
 	}
 }
+
+func Test_GetProviders_ReturnsSnapshot(t *testing.T) {
+	a := assert.New(t)
+	defer goth.ClearProviders()
+
+	first := namedProvider("first")
+	goth.ReplaceProviders(first)
+
+	snap := goth.GetProviders()
+	goth.UseProviders(namedProvider("second"))
+	a.Len(snap, 1, "a later UseProviders must not change an earlier result")
+	a.NotContains(snap, "second")
+
+	delete(snap, "first")
+	got, err := goth.GetProvider("first")
+	a.NoError(err, "mutating the result must not change the registry")
+	a.Same(first, got)
+}

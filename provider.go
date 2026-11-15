@@ -79,9 +79,18 @@ func ReplaceProviders(viders ...Provider) {
 	providers = next
 }
 
-// GetProviders returns a list of all the providers currently in use.
+// GetProviders returns a snapshot of all the providers currently in use.
+// The returned map is a copy: later registry changes do not show up in it,
+// and changing it does not change the registry.
 func GetProviders() Providers {
-	return providers
+	providersHat.RLock()
+	defer providersHat.RUnlock()
+
+	snapshot := make(Providers, len(providers))
+	for name, provider := range providers {
+		snapshot[name] = provider
+	}
+	return snapshot
 }
 
 // GetProvider returns a previously created provider. If Goth has not

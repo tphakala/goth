@@ -1,6 +1,7 @@
 package goth_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -101,6 +102,11 @@ func Test_ReplaceProviders_NeverExposesMissingProvider(t *testing.T) {
 				}
 				if _, err := goth.GetProvider("stable"); err != nil {
 					missing <- err
+					return
+				}
+				// A snapshot read must also be safe against the swap.
+				if _, ok := goth.GetProviders()["stable"]; !ok {
+					missing <- fmt.Errorf("snapshot lacks the stable provider")
 					return
 				}
 			}
